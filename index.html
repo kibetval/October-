@@ -1,0 +1,330 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Digit Pulse — Deriv Even/Odd</title>
+<style>
+:root{--bg:#07111c;--panel:#101f2e;--panel2:#14283a;--line:#243b4e;--text:#eaf3fb;--muted:#91a8ba;--green:#35e0ae;--red:#ff6685;--gold:#ffd166;--blue:#6cb7ff}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 20% 0%,#15324a 0,transparent 40%),var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1200px;margin:auto;padding:20px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--green),var(--blue));display:grid;place-items:center;color:#07111c;font-weight:900;font-size:22px;box-shadow:0 0 24px #35e0ae33}
+.sub{color:var(--muted);font-size:13px}
+.pill{border:1px solid var(--line);background:#0d1b29;border-radius:999px;padding:8px 12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+select,button{background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:10px 12px;border-radius:10px;font:inherit}
+button{cursor:pointer}
+button:hover{border-color:var(--green)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.primary{background:linear-gradient(120deg,#1a8f77,#2168a3);border-color:#35e0ae77;font-weight:750}
+.stop{border-color:#ff668577}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+.dot.live{background:var(--green);box-shadow:0 0 12px var(--green);animation:pulse 1.3s infinite}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card{background:linear-gradient(145deg,#122437,#0d1b29);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;box-shadow:0 8px 30px #0002}
+.label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.big{font-size:29px;font-weight:800;letter-spacing:-.03em;margin-top:7px}
+.green{color:var(--green)}.red{color:var(--red)}.gold{color:var(--gold)}
+.section{margin-top:20px}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px}
+.sectionhead h2{font-size:17px;margin:0}
+.marketgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.market{position:relative;overflow:hidden}
+.market:after{content:"";position:absolute;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,var(--green),transparent);opacity:.8}
+.marketname{font-weight:750;font-size:15px}
+.symbol{font-size:12px;color:var(--muted)}
+.signal{font-weight:900;font-size:24px;margin:12px 0 2px;letter-spacing:.02em}
+.signal.even{color:var(--green)}.signal.odd{color:var(--red)}.signal.wait{color:var(--gold)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.stat{background:#091723;border-radius:10px;padding:9px}
+.stat b{display:block;font-size:17px}
+.meter{height:6px;background:#263c4d;border-radius:99px;overflow:hidden;display:flex;margin-top:10px}
+.meter span{display:block;height:100%;transition:width .35s}
+.meter .evenbar{background:var(--green)}.meter .oddbar{background:var(--red)}
+.digitrow{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-top:10px}
+.digit{background:#0a1926;border:1px solid var(--line);border-radius:8px;text-align:center;padding:7px 0;font-size:13px}
+.digit b{display:block;font-size:16px}.digit small{color:var(--muted)}
+.digit.evenDigit{border-color:#35e0ae55}.digit.oddDigit{border-color:#ff668555}
+.tablewrap{overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:620px}
+th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:13px}
+th{color:var(--muted);font-weight:600}
+.empty{padding:24px;text-align:center;color:var(--muted)}
+.footer{color:var(--muted);font-size:12px;margin:24px 0 8px}
+.pulsebar{height:2px;background:linear-gradient(90deg,transparent,var(--green),var(--blue),transparent);background-size:200% 100%;animation:scan 2.8s linear infinite;margin-top:18px}
+@keyframes pulse{50%{opacity:.35;box-shadow:0 0 2px var(--green)}}
+@keyframes scan{to{background-position:-200% 0}}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.marketgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.wrap{padding:13px}.grid,.marketgrid{grid-template-columns:1fr 1fr;gap:8px}.card{padding:12px}.big{font-size:24px}.digitrow{gap:3px}.digit{padding:6px 0}.sectionhead{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header class="top">
+  <div class="brand">
+    <div class="logo">D</div>
+    <div>
+      <div style="font-size:21px;font-weight:850;letter-spacing:-.04em">DIGIT PULSE <span style="color:var(--green)">/</span></div>
+      <div class="sub">DERIV · EVEN / ODD MARKET SCANNER</div>
+    </div>
+  </div>
+  <div class="pill"><span id="liveDot" class="dot"></span><span id="connection">Stopped</span></div>
+</header>
+
+<div class="controls">
+  <button id="startBtn" class="primary">▶ Start analysis</button>
+  <button id="stopBtn" class="stop" disabled>■ Stop analysis</button>
+  <label class="pill">Market <select id="marketSelect"><option value="ALL">All volatility indices</option></select></label>
+  <label class="pill">Window <select id="windowSelect"><option>100</option><option selected>300</option><option>500</option><option>1000</option></select></label>
+</div>
+
+<section class="grid">
+  <div class="card"><div class="label">Markets found</div><div id="marketCount" class="big">—</div><div class="sub">Available volatility symbols</div></div>
+  <div class="card"><div class="label">Live ticks received</div><div id="tickCount" class="big">0</div><div class="sub">Across active subscriptions</div></div>
+  <div class="card"><div class="label">Signals generated</div><div id="signalCount" class="big">0</div><div class="sub">EVEN / ODD entries</div></div>
+  <div class="card"><div class="label">Settled signal accuracy</div><div id="accuracy" class="big">—</div><div class="sub" id="settledText">Waiting for outcomes</div></div>
+</section>
+
+<section class="section">
+  <div class="sectionhead"><h2>Volatility market scanner</h2><span class="sub">One signal decision per fresh tick · even/odd only</span></div>
+  <div id="markets" class="marketgrid"><div class="card empty">Press Start analysis to connect.</div></div>
+</section>
+
+<section class="section card">
+  <div class="sectionhead"><h2>Recent signal performance</h2><span class="sub">Each entry is scored against the next observed digit</span></div>
+  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+    <div><div class="label">Wins</div><div class="big green" id="wins">0</div></div>
+    <div><div class="label">Losses</div><div class="big red" id="losses">0</div></div>
+    <div><div class="label">Pending</div><div class="big gold" id="pending">0</div></div>
+  </div>
+  <div class="tablewrap" style="margin-top:12px">
+    <table><thead><tr><th>Time</th><th>Market</th><th>Entry</th><th>Analysis score</th><th>Outcome</th></tr></thead>
+    <tbody id="historyRows"><tr><td colspan="5" class="empty">No signals yet.</td></tr></tbody></table>
+  </div>
+</section>
+
+<section class="section">
+  <div class="sectionhead"><h2>Live digit distribution</h2><span class="sub">Final displayed digit from Deriv quote precision</span></div>
+  <div id="digitsPanel" class="marketgrid"><div class="card empty">Press Start to load tick history.</div></div>
+</section>
+<div class="pulsebar"></div>
+<div class="footer">DIGIT PULSE · Deriv public market data · Signal-only dashboard. Telegram alerts run separately through GitHub Actions.</div>
+</main>
+
+<script>
+const APP_ID="YOUR_APP_ID"; // Replace with your Deriv App ID.
+const WS_URL=`wss://ws.derivws.com/websockets/v3?app_id=${encodeURIComponent(APP_ID)}`;
+const $=id=>document.getElementById(id);
+let ws=null,running=false,markets={},reqToSymbol={},nextReq=10,totalTicks=0,signalLog=[],wins=0,losses=0,subscriptions={},generation=0;
+const parity=d=>d%2===0?"EVEN":"ODD";
+
+function displayedDigit(price,pipSize){
+  const decimals=Math.max(0,Math.min(10,Number(pipSize)||0));
+  const fixed=Number(price).toFixed(decimals);
+  return Number(fixed.replace(/\D/g,"").slice(-1));
+}
+function fmtTime(epoch){return new Date((epoch||Date.now()/1000)*1000).toLocaleTimeString();}
+function setConnection(s,live=false){$("connection").textContent=s;$("liveDot").className="dot"+(live?" live":"");}
+function send(obj){if(running&&ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(obj));}
+
+function start(){
+  if(running)return;
+  if(APP_ID==="YOUR_APP_ID"||!APP_ID.trim()){setConnection("Add your App ID first");return;}
+  generation++;
+  const myGen=generation;
+  running=true;markets={};reqToSymbol={};subscriptions={};totalTicks=0;signalLog=[];wins=0;losses=0;nextReq=10;
+  render();
+  $("startBtn").disabled=true;$("stopBtn").disabled=false;
+  setConnection("Connecting to Deriv…");
+  ws=new WebSocket(WS_URL);
+
+  ws.onopen=()=>{
+    if(myGen!==generation)return;
+    setConnection("Connected · loading symbols",true);
+    send({active_symbols:"brief",product_type:"basic",req_id:1});
+  };
+
+  ws.onmessage=e=>{
+    if(myGen!==generation||!running)return;
+    let d;
+    try{d=JSON.parse(e.data)}catch(_){return;}
+    if(d.error){setConnection("API error: "+d.error.message);return;}
+
+    if(d.msg_type==="active_symbols"){
+      const list=(d.active_symbols||[]).filter(s=>
+        /volatility/i.test((s.display_name||"")+" "+(s.market_display_name||"")+" "+(s.submarket_display_name||"")) &&
+        s.is_trading_suspended!==1
+      );
+      if(!list.length){setConnection("No volatility symbols returned");return;}
+      list.forEach(s=>{
+        if(!markets[s.symbol])markets[s.symbol]={
+          symbol:s.symbol,name:s.display_name||s.symbol,digits:[],pipSize:null,
+          lastPrice:null,lastDigit:null,lastEpoch:0,signal:"WAIT",score:0
+        };
+      });
+      $("marketCount").textContent=Object.keys(markets).length;
+      populateSelect();render();
+      setConnection("Loading historical ticks",true);
+      Object.values(markets).forEach(m=>{
+        const id=nextReq++;
+        reqToSymbol[id]=m.symbol;
+        send({ticks_history:m.symbol,count:1000,end:"latest",style:"ticks",req_id:id});
+      });
+    }
+
+    if(d.msg_type==="history"){
+      const sym=reqToSymbol[d.req_id],m=markets[sym];
+      if(!m)return;
+      const h=d.history||{};
+      m.pipSize=d.pip_size??2;
+      const prices=h.prices||[],times=h.times||[];
+      prices.forEach((p,i)=>{
+        m.digits.push(displayedDigit(p,m.pipSize));
+        if(times[i])m.lastEpoch=Math.max(m.lastEpoch,Number(times[i]));
+        m.lastPrice=p;
+      });
+      m.digits=m.digits.slice(-1000);
+      if(m.digits.length)m.lastDigit=m.digits[m.digits.length-1];
+      const subId=nextReq++;
+      reqToSymbol[subId]=sym;
+      send({ticks:sym,subscribe:1,req_id:subId});
+      subscriptions[sym]=true;
+      evaluate(m,false);render();
+    }
+
+    if(d.msg_type==="tick"){
+      const t=d.tick||{},m=markets[t.symbol];
+      if(!m)return;
+      const epoch=Number(t.epoch||0);
+      if(epoch&&epoch<=m.lastEpoch)return;
+      m.lastEpoch=epoch;
+      m.pipSize=t.pip_size??m.pipSize??2;
+      m.lastPrice=t.quote;
+      m.lastDigit=displayedDigit(t.quote,m.pipSize);
+      m.digits.push(m.lastDigit);
+      m.digits=m.digits.slice(-1000);
+      totalTicks++;
+      evaluate(m,true);render();
+    }
+  };
+
+  ws.onerror=()=>{if(myGen===generation)setConnection("Connection error");};
+  ws.onclose=()=>{
+    if(myGen===generation&&running){
+      setConnection("Disconnected · press Start to reconnect");
+      running=false;$("startBtn").disabled=false;$("stopBtn").disabled=true;
+    }
+  };
+}
+
+function stop(){
+  running=false;generation++;
+  if(ws){ws.onmessage=null;ws.onopen=null;try{ws.close();}catch(_){}}
+  ws=null;setConnection("Stopped");
+  $("startBtn").disabled=false;$("stopBtn").disabled=true;
+  Object.values(markets).forEach(m=>m.signal="WAIT");
+  render();
+}
+
+function populateSelect(){
+  const sel=$("marketSelect"),old=sel.value;
+  sel.innerHTML='<option value="ALL">All volatility indices</option>';
+  Object.values(markets).sort((a,b)=>a.name.localeCompare(b.name)).forEach(m=>{
+    const o=document.createElement("option");
+    o.value=m.symbol;o.textContent=m.name+" ("+m.symbol+")";sel.appendChild(o);
+  });
+  if([...sel.options].some(o=>o.value===old))sel.value=old;
+}
+
+function evaluate(m,onFresh){
+  const win=Number($("windowSelect").value),ds=m.digits.slice(-win);
+  if(ds.length<Math.min(win,100)){m.signal="WAIT";m.score=0;return;}
+  const ev=ds.filter(d=>d%2===0).length,rate=ev/ds.length;
+  const short=ds.slice(-Math.min(50,ds.length));
+  const shortRate=short.filter(d=>d%2===0).length/short.length;
+  const edge=rate-.5,shortEdge=shortRate-.5;
+  const same=(edge>0&&shortEdge>0)||(edge<0&&shortEdge<0);
+  const score=Math.round(Math.min(99,50+Math.abs(edge)*150+Math.abs(shortEdge)*35));
+  let pick="WAIT";
+  if(onFresh&&ds.length>=win&&same&&Math.abs(edge)>=.07&&Math.abs(shortEdge)>=.08){
+    pick=edge>0?"EVEN":"ODD";
+  }
+
+  if(onFresh){
+    for(const s of signalLog){
+      if(s.symbol===m.symbol&&s.outcome==="PENDING"&&m.lastEpoch>s.epoch){
+        s.outcome=parity(m.lastDigit)===s.entry?"WIN":"LOSS";
+        if(s.outcome==="WIN")wins++;else losses++;
+        break;
+      }
+    }
+    if(pick!=="WAIT"&&!signalLog.some(s=>s.symbol===m.symbol&&s.outcome==="PENDING")){
+      signalLog.unshift({time:fmtTime(m.lastEpoch),symbol:m.symbol,entry:pick,score,epoch:m.lastEpoch,outcome:"PENDING"});
+      signalLog=signalLog.slice(0,100);
+    }
+  }
+  m.signal=pick;m.score=score;
+}
+
+function render(){
+  const selected=$("marketSelect").value;
+  const shown=Object.values(markets)
+    .filter(m=>selected==="ALL"||m.symbol===selected)
+    .sort((a,b)=>a.name.localeCompare(b.name));
+
+  $("tickCount").textContent=totalTicks.toLocaleString();
+  $("signalCount").textContent=signalLog.length;
+  $("wins").textContent=wins;$("losses").textContent=losses;
+  $("pending").textContent=signalLog.filter(s=>s.outcome==="PENDING").length;
+  const done=wins+losses;
+  $("accuracy").textContent=done?(wins/done*100).toFixed(1)+"%":"—";
+  $("settledText").textContent=done?done+" settled signals":"Waiting for outcomes";
+
+  $("markets").innerHTML=shown.length?shown.map(m=>{
+    const ds=m.digits.slice(-Number($("windowSelect").value));
+    const ev=ds.filter(d=>d%2===0).length,od=ds.length-ev;
+    const er=ds.length?ev/ds.length*100:0,or=100-er;
+    return `<article class="card market">
+      <div class="marketname">${esc(m.name)}</div>
+      <div class="symbol">${esc(m.symbol)} · ${ds.length} ticks loaded</div>
+      <div class="signal ${m.signal.toLowerCase()}">${m.signal}</div>
+      <div class="sub">Latest digit: <b>${m.lastDigit??"—"}</b> · ${m.lastDigit==null?"—":parity(m.lastDigit)}</div>
+      <div class="meter"><span class="evenbar" style="width:${er}%"></span><span class="oddbar" style="width:${or}%"></span></div>
+      <div class="stats">
+        <div class="stat"><span class="sub">EVEN</span><b class="green">${er.toFixed(1)}%</b></div>
+        <div class="stat"><span class="sub">ODD</span><b class="red">${or.toFixed(1)}%</b></div>
+      </div>
+      <div class="sub" style="margin-top:9px">Analysis score: ${m.score||0}/99 · stream ${subscriptions[m.symbol]?"active":"starting"}</div>
+    </article>`;
+  }).join(""):'<div class="card empty">No matching markets loaded.</div>';
+
+  $("digitsPanel").innerHTML=shown.length?shown.slice(0,6).map(m=>{
+    const ds=m.digits.slice(-Number($("windowSelect").value)),c=Array(10).fill(0);
+    ds.forEach(d=>c[d]++);
+    return `<article class="card">
+      <div class="marketname">${esc(m.name)}</div><div class="sub">${esc(m.symbol)} · digit distribution</div>
+      <div class="digitrow">${c.map((n,i)=>`<div class="digit ${i%2===0?"evenDigit":"oddDigit"}"><b>${i}</b><small>${ds.length?(n/ds.length*100).toFixed(0):0}%</small></div>`).join("")}</div>
+    </article>`;
+  }).join(""):'<div class="card empty">Press Start to load tick history.</div>';
+
+  $("historyRows").innerHTML=signalLog.length?signalLog.slice(0,30).map(s=>
+    `<tr><td>${esc(s.time)}</td><td>${esc(s.symbol)}</td><td class="${s.entry==="EVEN"?"green":"red"}">${s.entry}</td><td>${s.score}/99</td><td class="${s.outcome==="WIN"?"green":s.outcome==="LOSS"?"red":"gold"}">${s.outcome}</td></tr>`
+  ).join(""):'<tr><td colspan="5" class="empty">No entries yet.</td></tr>';
+}
+
+function esc(s){
+  return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+$("startBtn").addEventListener("click",start);
+$("stopBtn").addEventListener("click",stop);
+$("marketSelect").addEventListener("change",render);
+$("windowSelect").addEventListener("change",()=>{Object.values(markets).forEach(m=>evaluate(m,false));render();});
+window.addEventListener("beforeunload",stop);
+</script>
+</body>
+  </html>
+  

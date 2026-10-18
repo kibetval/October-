@@ -1,584 +1,316 @@
+<!doctype html>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deriv Over/Under Analyzer</title>
-<style>
-:root {
-  color-scheme: dark;
-  --bg:#080d18; --panel:#111a2b; --line:#26344b;
-  --text:#edf3ff; --muted:#92a3bd; --green:#37d99a;
-  --red:#ff667d; --blue:#65a7ff; --gold:#ffd166;
-}
-* { box-sizing:border-box; }
-body {
-  margin:0; background:var(--bg); color:var(--text);
-  font-family:Arial,Helvetica,sans-serif;
-}
-header { padding:22px 16px 12px; max-width:1100px; margin:auto; }
-h1 { font-size:25px; margin:0 0 8px; }
-p { color:var(--muted); line-height:1.5; }
-main { max-width:1100px; margin:auto; padding:12px 16px 36px; }
-.panel {
-  background:var(--panel); border:1px solid var(--line);
-  border-radius:14px; padding:16px; margin-bottom:14px;
-}
-.controls { display:flex; flex-wrap:wrap; align-items:end; gap:12px; }
-.field { display:flex; flex-direction:column; gap:6px; flex:1; min-width:130px; }
-label { font-size:12px; color:var(--muted); }
-select, input, button {
-  width:100%; min-height:42px; border-radius:9px;
-  padding:10px; color:var(--text); background:#0b1220;
-  border:1px solid var(--line); font-size:14px;
-}
-button { cursor:pointer; font-weight:bold; }
-button:disabled { opacity:.45; cursor:not-allowed; }
-#startBtn { background:var(--green); color:#06150f; border:0; }
-#stopBtn { background:#321824; color:#ffdce2; border-color:#753044; }
-.status { font-size:13px; margin-top:12px; color:var(--gold); overflow-wrap:anywhere; }
-.stats {
-  display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:10px; margin-bottom:14px;
-}
-.stat { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:13px; min-width:0; }
-.stat small { color:var(--muted); display:block; margin-bottom:7px; }
-.stat strong { font-size:20px; overflow-wrap:anywhere; }
-#markets { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-.market { background:var(--panel); border:1px solid var(--line); border-radius:13px; padding:14px; min-width:0; }
-.market-head { display:flex; justify-content:space-between; gap:8px; align-items:start; }
-.market h3 { margin:0 0 5px; font-size:15px; overflow-wrap:anywhere; }
-.symbol { color:var(--muted); font-size:12px; }
-.badge { border-radius:7px; padding:5px 7px; font-size:11px; background:#253149; white-space:nowrap; }
-.over { color:var(--green); }
-.under { color:var(--red); }
-.wait { color:var(--gold); }
-.price-row { display:flex; justify-content:space-between; gap:8px; margin:14px 0; font-size:13px; }
-.price-row span:last-child { text-align:right; overflow-wrap:anywhere; }
-.bar-bg { background:#263249; height:8px; border-radius:20px; overflow:hidden; margin:7px 0 12px; }
-.bar-fill { height:100%; width:0%; background:var(--blue); }
-.freq-row { display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--muted); }
-.signal { font-size:19px; font-weight:bold; margin-top:10px; }
-.note { font-size:12px; color:var(--muted); line-height:1.5; }
-#log { max-height:240px; overflow:auto; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
-.logline { padding:7px 0; border-bottom:1px solid var(--line); }
-@media(max-width:650px) {
-  .stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  #markets { grid-template-columns:1fr; }
-  h1 { font-size:22px; }
-}
-</style>
-</head>
-<body>
-<header>
-  <h1>Deriv Digits Over/Under Analyzer</h1>
-  <p>Live volatility-index tick analysis. Signals are statistical estimates, not guarantees or automatic trades.</p>
-</header>
-
-<main>
-  <section class="panel">
-    <div class="controls">
-      <div class="field">
-        <label for="marketSelect">MARKET</label>
-        <select id="marketSelect">
-          <option value="ALL">All 14 volatility indices</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="directionSelect">CONTRACT TYPE</label>
-        <select id="directionSelect">
-          <option value="BOTH">Over or Under</option>
-          <option value="OVER">Over only</option>
-          <option value="UNDER">Under only</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="barrierSelect">BARRIER DIGIT</label>
-        <select id="barrierSelect">
-          <option value="0">0</option><option value="1">1</option>
-          <option value="2">2</option><option value="3">3</option>
-          <option value="4">4</option><option value="5" selected>5</option>
-          <option value="6">6</option><option value="7">7</option>
-          <option value="8">8</option><option value="9">9</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="windowSelect">ANALYSIS WINDOW</label>
-        <select id="windowSelect">
-          <option value="100">Last 100 ticks</option>
-          <option value="250">Last 250 ticks</option>
-          <option value="500" selected>Last 500 ticks</option>
-          <option value="1000">Last 1000 ticks</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="thresholdSelect">MINIMUM FREQUENCY</label>
-        <select id="thresholdSelect">
-          <option value="55">55%</option>
-          <option value="60" selected>60%</option>
-          <option value="65">65%</option>
-          <option value="70">70%</option>
-        </select>
-      </div>
-    </div>
-    <div class="controls" style="margin-top:12px">
-      <div class="field">
-        <button id="startBtn">▶ Start Analysis</button>
-      </div>
-      <div class="field">
-        <button id="stopBtn" disabled>■ Stop Analysis</button>
-      </div>
-    </div>
-    <div id="connection" class="status">Stopped · press Start to connect</div>
-    <p class="note">This dashboard reads public market data only. It does not place trades. Telegram alerts require a separate GitHub Actions workflow.</p>
-  </section>
-
-  <section class="stats">
-    <div class="stat"><small>MARKETS LISTED</small><strong id="marketCount">14</strong></div>
-    <div class="stat"><small>MARKETS CONNECTED</small><strong id="connectedCount">0</strong></div>
-    <div class="stat"><small>LIVE TICKS RECEIVED</small><strong id="tickCount">0</strong></div>
-    <div class="stat"><small>ACTIVE SIGNALS</small><strong id="signalCount">0</strong></div>
-  </section>
-
-  <section id="markets"></section>
-
-  <section class="panel" style="margin-top:14px">
-    <h3 style="margin-top:0">Recent analysis updates</h3>
-    <div id="log" class="note">No updates yet. Press Start Analysis.</div>
-    <button id="clearLogBtn" style="margin-top:10px">Clear updates</button>
-  </section>
-
-  <section class="panel">
-    <h3 style="margin-top:0">How to read the signal</h3>
-    <p class="note"><b>OVER:</b> the last digit is greater than your selected barrier. <b>UNDER:</b> the last digit is lower than your selected barrier. A digit equal to the barrier is neither outcome.</p>
-    <p class="note">The percentages describe past ticks in the selected window. They do not reliably predict the next tick, and a high frequency is not proof of a winning trade. Test on demo and never risk money you cannot afford to lose.</p>
-  </section>
-</main>
-
-<script>
-/*
-  IMPORTANT:
-  Replace 12345 below with your actual numeric Deriv App ID.
-  Do not put an API token here.
-*/
-const APP_ID = "12345";
-const WS_URL = "wss://ws.derivws.com/websockets/v3?app_id=" +
-               encodeURIComponent(APP_ID);
-
-const SYMBOLS = [
-  {symbol:"R_10", name:"Volatility 10 Index"},
-  {symbol:"R_15", name:"Volatility 15 Index"},
-  {symbol:"R_25", name:"Volatility 25 Index"},
-  {symbol:"R_50", name:"Volatility 50 Index"},
-  {symbol:"R_75", name:"Volatility 75 Index"},
-  {symbol:"R_90", name:"Volatility 90 Index"},
-  {symbol:"R_100", name:"Volatility 100 Index"},
-  {symbol:"1HZ10V", name:"Volatility 10 (1s) Index"},
-  {symbol:"1HZ15V", name:"Volatility 15 (1s) Index"},
-  {symbol:"1HZ25V", name:"Volatility 25 (1s) Index"},
-  {symbol:"1HZ50V", name:"Volatility 50 (1s) Index"},
-  {symbol:"1HZ75V", name:"Volatility 75 (1s) Index"},
-  {symbol:"1HZ90V", name:"Volatility 90 (1s) Index"},
-  {symbol:"1HZ100V", name:"Volatility 100 (1s) Index"}
-];
-
-const $ = id => document.getElementById(id);
-let ws = null;
-let running = false;
-let generation = 0;
-let requestId = 10;
-let totalTicks = 0;
-let markets = {};
-let requestMap = {};
-let activeSymbols = new Set();
-let logItems = [];
-
-function makeMarket(item) {
-  return {
-    ...item,
-    available:false,
-    loading:false,
-    subscribed:false,
-    digits:[],
-    pipSize:null,
-    lastPrice:null,
-    lastDigit:null,
-    lastEpoch:0,
-    signal:"WAIT",
-    overPct:0,
-    underPct:0,
-    sample:0,
-    note:"Waiting for connection"
-  };
-}
-
-function initializeMarkets() {
-  markets = {};
-  SYMBOLS.forEach(item => markets[item.symbol] = makeMarket(item));
-  populateSelect();
-  render();
-}
-
-function setStatus(message, good=false) {
-  $("connection").textContent = message;
-  $("connection").style.color = good ? "var(--green)" : "var(--gold)";
-}
-
-function send(payload) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(payload));
-  }
-}
-
-function log(message) {
-  const time = new Date().toLocaleTimeString();
-  logItems.unshift(time + " — " + message);
-  logItems = logItems.slice(0, 40);
-  $("log").innerHTML = logItems.map(x =>
-    '<div class="logline">' + escapeHtml(x) + '</div>'
-  ).join("");
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, ch => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
-  })[ch]);
-}
-
-/*
-  pipSize means decimal places, as supplied by Deriv.
-  Keep the trailing decimal digit instead of rounding the quote.
-*/
-function getLastDigit(price, pipSize) {
-  const decimals = Math.max(0, Math.min(10, Number(pipSize ?? 2)));
-  const fixed = Number(price).toFixed(decimals);
-  const digits = fixed.replace(/\D/g, "");
-  return Number(digits.slice(-1));
-}
-
-function populateSelect() {
-  const select = $("marketSelect");
-  const previous = select.value;
-  select.innerHTML = '<option value="ALL">All 14 volatility indices</option>';
-  SYMBOLS.forEach(item => {
-    const option = document.createElement("option");
-    option.value = item.symbol;
-    option.textContent = item.name + " (" + item.symbol + ")";
-    select.appendChild(option);
-  });
-  if ([...select.options].some(option => option.value === previous)) {
-    select.value = previous;
-  }
-}
-
-function selectedMarkets() {
-  const chosen = $("marketSelect").value;
-  return Object.values(markets).filter(m =>
-    chosen === "ALL" || m.symbol === chosen
-  );
-}
-
-function calculate(m) {
-  const requestedWindow = Number($("windowSelect").value);
-  const digits = m.digits.slice(-requestedWindow);
-  const barrier = Number($("barrierSelect").value);
-
-  m.sample = digits.length;
-  if (!digits.length) {
-    m.overPct = 0;
-    m.underPct = 0;
-    m.signal = "WAIT";
-    m.note = m.available ? "Loading tick history" : "Not confirmed available";
-    return;
-  }
-
-  const overCount = digits.filter(d => d > barrier).length;
-  const underCount = digits.filter(d => d < barrier).length;
-  m.overPct = overCount / digits.length * 100;
-  m.underPct = underCount / digits.length * 100;
-
-  const threshold = Number($("thresholdSelect").value);
-  const direction = $("directionSelect").value;
-
-  if (!m.available) {
-    m.signal = "WAIT";
-    m.note = "Market not confirmed available";
-  } else if (digits.length < Math.min(100, requestedWindow)) {
-    m.signal = "WAIT";
-    m.note = "Collecting more ticks";
-  } else {
-    const overPass = m.overPct >= threshold;
-    const underPass = m.underPct >= threshold;
-
-    if (direction === "OVER") {
-      m.signal = overPass ? "OVER" : "WAIT";
-    } else if (direction === "UNDER") {
-      m.signal = underPass ? "UNDER" : "WAIT";
-    } else if (overPass && m.overPct > m.underPct) {
-      m.signal = "OVER";
-    } else if (underPass && m.underPct > m.overPct) {
-      m.signal = "UNDER";
-    } else {
-      m.signal = "WAIT";
-    }
-
-    m.note = m.signal === "WAIT"
-      ? "Frequency threshold not met"
-      : "Past frequency threshold met";
-  }
-}
-
-function render() {
-  const chosenMarkets = selectedMarkets();
-  const connected = Object.values(markets).filter(m => m.subscribed).length;
-  const signals = Object.values(markets).filter(m =>
-    m.available && (m.signal === "OVER" || m.signal === "UNDER")
-  ).length;
-
-  $("marketCount").textContent = SYMBOLS.length;
-  $("connectedCount").textContent = connected;
-  $("tickCount").textContent = totalTicks;
-  $("signalCount").textContent = signals;
-
-  $("markets").innerHTML = chosenMarkets.map(m => {
-    calculate(m);
-    const signalClass = m.signal === "OVER" ? "over" :
-                        m.signal === "UNDER" ? "under" : "wait";
-    const availability = !m.available ? "Checking" :
-      m.subscribed ? "Live" : m.loading ? "Loading" : "Available";
-    const digit = m.lastDigit === null ? "—" : m.lastDigit;
-    const price = m.lastPrice === null ? "—" : m.lastPrice;
-    const overWidth = Math.max(0, Math.min(100, m.overPct));
-    const underWidth = Math.max(0, Math.min(100, m.underPct));
-
-    return `
-      <article class="market">
-        <div class="market-head">
-          <div>
-            <h3>${escapeHtml(m.name)}</h3>
-            <div class="symbol">${escapeHtml(m.symbol)}</div>
-          </div>
-          <span class="badge">${availability}</span>
-        </div>
-        <div class="price-row">
-          <span>Latest quote</span><span>${escapeHtml(price)}</span>
-        </div>
-        <div class="price-row">
-          <span>Last digit</span><span><b>${digit}</b></span>
-        </div>
-        <div class="freq-row"><span>OVER ${$("barrierSelect").value}</span><b>${m.overPct.toFixed(1)}%</b></div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${overWidth}%;background:var(--green)"></div></div>
-        <div class="freq-row"><span>UNDER ${$("barrierSelect").value}</span><b>${m.underPct.toFixed(1)}%</b></div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${underWidth}%;background:var(--red)"></div></div>
-        <div class="price-row">
-          <span>Ticks analysed</span><span>${m.sample}</span>
-        </div>
-        <div class="signal ${signalClass}">${m.signal}</div>
-        <div class="note">${escapeHtml(m.note)}</div>
-      </article>`;
-  }).join("");
-}
-
-function stop() {
-  generation++;
-  running = false;
-
-  if (ws) {
-    const old = ws;
-    ws = null;
-    old.onopen = null;
-    old.onmessage = null;
-    old.onerror = null;
-    old.onclose = null;
-    if (old.readyState === WebSocket.OPEN ||
-        old.readyState === WebSocket.CONNECTING) {
-      try { old.close(); } catch (_) {}
-    }
-  }
-
-  Object.values(markets).forEach(m => {
-    m.subscribed = false;
-    if (m.available) m.note = "Stopped";
-  });
-
-  $("startBtn").disabled = false;
-  $("stopBtn").disabled = true;
-  setStatus("Stopped · press Start to reconnect");
-  render();
-}
-
-function start() {
-  if (running) return;
-
-  if (!APP_ID || APP_ID === "12345" || !/^\d+$/.test(APP_ID)) {
-    setStatus("Set your real numeric Deriv App ID in index.html first.");
-    log("Connection not started: check the numeric App ID.");
-    return;
-  }
-
-  generation++;
-  const myGeneration = generation;
-  running = true;
-  requestId = 10;
-  requestMap = {};
-  activeSymbols = new Set();
-  totalTicks = 0;
-  initializeMarkets();
-
-  $("startBtn").disabled = true;
-  $("stopBtn").disabled = false;
-  setStatus("Connecting to Deriv…");
-
-  try {
-    ws = new WebSocket(WS_URL);
-  } catch (error) {
-    setStatus("Could not create WebSocket: " + error.message);
-    running = false;
-    $("startBtn").disabled = false;
-    $("stopBtn").disabled = true;
-    return;
-  }
-
-  const socket = ws;
-
-  socket.onopen = () => {
-    if (myGeneration !== generation || !running) return;
-    setStatus("Connected · checking the 14 requested markets", true);
-    log("Connected to Deriv market data.");
-    send({
-      active_symbols:"brief",
-      product_type:"basic",
-      req_id:1
-    });
-  };
-
-  socket.onmessage = event => {
-    if (myGeneration !== generation || !running) return;
-
-    let data;
-    try {
-      data = JSON.parse(event.data);
-    } catch (_) {
-      return;
-    }
-
-    if (data.error) {
-      const message = data.error.message || "Unknown Deriv API error";
-      setStatus("API error: " + message);
-      log("API error: " + message);
-      return;
-    }
-
-    if (data.msg_type === "active_symbols") {
-      const availableList = data.active_symbols || [];
-      const availableSet = new Set(availableList.map(item => item.symbol));
-
-      SYMBOLS.forEach(item => {
-        const m = markets[item.symbol];
-        m.available = availableSet.has(item.symbol);
-        m.note = m.available ? "Loading historical ticks" : "Not returned by Deriv active_symbols";
-      });
-
-      const availableCount = SYMBOLS.filter(item => availableSet.has(item.symbol)).length;
-      setStatus("Deriv returned " + availableCount + " of the 14 requested markets.", true);
-      log("Deriv confirmed " + availableCount + " of 14 requested symbols.");
-
-      if (availableCount === 0) {
-        setStatus("Connected, but none of the 14 symbols were returned. Check App ID and market availability.");
-        render();
-        return;
-      }
-
-      SYMBOLS.filter(item => availableSet.has(item.symbol)).forEach(item => {
-        const m = markets[item.symbol];
-        m.loading = true;
-        const id = requestId++;
-        requestMap[id] = {symbol:item.symbol, type:"history"};
-        send({
-          ticks_history:item.symbol,
-          count:1000,
-          end:"latest",
-          style:"ticks",
-          req_id:id
-        });
-      });
-
-      render();
-      return;
-    }
-
-    if (data.msg_type === "history") {
-      const request = requestMap[data.req_id];
-      if (!request) return;
-      const m = markets[request.symbol];
-      if (!m) return;
-
-      const history = data.history || {};
-      const prices = history.prices || [];
-      const times = history.times || [];
-
-      // Deriv responses may provide pip_size at the response level.
-      // Tick updates below refresh it from the live tick when supplied.
-      if (data.pip_size !== undefined) {
-        m.pipSize = Number(data.pip_size);
-      } else if (m.pipSize === null) {
-        m.pipSize = 2;
-      }
-
-      prices.forEach((price, index) => {
-        m.digits.push(getLastDigit(price, m.pipSize));
-        m.lastPrice = price;
-        if (times[index]) {
-          m.lastEpoch = Math.max(m.lastEpoch, Number(times[index]));
-        }
-      });
-
-      m.digits = m.digits.slice(-1000);
-      if (m.digits.length) {
-        m.lastDigit = m.digits[m.digits.length - 1];
-      }
-
-      m.loading = false;
-      m.note = "History loaded · subscribing to live ticks";
-
-      const id = requestId++;
-      requestMap[id] = {symbol:m.symbol, type:"subscription"};
-      send({ticks:m.symbol, subscribe:1, req_id:id});
-      render();
-      return;
-    }
-
-    if (data.msg_type === "tick") {
-      const tick = data.tick || {};
-      const m = markets[tick.symbol];
-      if (!m) return;
-
-      const epoch = Number(tick.epoch || 0);
-      if (epoch && epoch <= m.lastEpoch) return;
-      if (epoch) m.lastEpoch = epoch;
-
-      if (tick.pip_size !== undefined) {
-        m.pipSize = Number(tick.pip_size);
-      }
-      if (m.pipSize === null) m.pipSize = 2;
-
-      m.lastPrice = tick.quote;
-      m.lastDigit = getLastDigit(tick.quote, m.pipSize);
-      m.digits.push(m.lastDigit);
-      m.digits = m.digits.slice(-1000);
-      m.subscribed = true;
-      m.note = "Receiving live ticks";
-      totalTicks++;
-
-      const previousSignal = m.signal;
-      calculate(m);
-
-      if (m.signal !== "WAIT" && m.signal !== previousSignal) {
-        log(m.name + ": " + m.signal +
-            " | barrier " + $("barrierSelect").value +
-            " | Over " + m.overPct.toFixed(1) + "%" +
-            " | Under " + m.underPct.toFixed(1) + "%");
-      }
-
-      setStatus("Live market data · last update " + new Date().toLocaleTimeStr
+<html lang="en">  
+<head>  
+<meta charset="utf-8">  
+<meta name="viewport" content="width=device-width,initial-scale=1">  
+<title>Digit Pulse — Deriv OVER/UNDER</title>  
+<style>  
+:root{--bg:#07111c;--panel:#101f2e;--panel2:#14283a;--line:#243b4e;--text:#eaf3fb;--muted:#91a8ba;--green:#35e0ae;--red:#ff6685;--gold:#ffd166;--blue:#6cb7ff}  
+*{box-sizing:border-box}  
+body{margin:0;background:radial-gradient(ellipse at 20% 0%,#15324a 0,transparent 40%),var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}  
+.wrap{max-width:1200px;margin:auto;padding:20px}  
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}  
+.brand{display:flex;gap:12px;align-items:center}  
+.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--green),var(--blue));display:grid;place-items:center;color:#07111c;font-weight:900;font-size:22px;box-shadow:0 0 24px #35e0ae33}  
+.sub{color:var(--muted);font-size:13px}  
+.pill{border:1px solid var(--line);background:#0d1b29;border-radius:999px;padding:8px 12px;color:var(--muted);display:flex;align-items:center;gap:8px}  
+select,button{background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:10px 12px;border-radius:10px;font:inherit}  
+button{cursor:pointer}  
+button:hover{border-color:var(--green)}  
+button:disabled{opacity:.45;cursor:not-allowed}  
+.primary{background:linear-gradient(120deg,#1a8f77,#2168a3);border-color:#35e0ae77;font-weight:750}  
+.stop{border-color:#ff668577}  
+.dot{width:8px;height:8px;border-radius:50%;background:var(--gold)}  
+.dot.live{background:var(--green);box-shadow:0 0 12px var(--green);animation:pulse 1.3s infinite}  
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0}  
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}  
+.card{background:linear-gradient(145deg,#122437,#0d1b29);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;box-shadow:0 8px 30px #0002}  
+.label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}  
+.big{font-size:29px;font-weight:800;letter-spacing:-.03em;margin-top:7px}  
+.green{color:var(--green)}.red{color:var(--red)}.gold{color:var(--gold)}  
+.section{margin-top:20px}  
+.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px}  
+.sectionhead h2{font-size:17px;margin:0}  
+.marketgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}  
+.market{position:relative;overflow:hidden}  
+.market:after{content:"";position:absolute;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,var(--green),transparent);opacity:.8}  
+.marketname{font-weight:750;font-size:15px}  
+.symbol{font-size:12px;color:var(--muted)}  
+.signal{font-weight:900;font-size:24px;margin:12px 0 2px;letter-spacing:.02em}  
+.signal.even{color:var(--green)}.signal.odd{color:var(--red)}.signal.wait{color:var(--gold)}  
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}  
+.stat{background:#091723;border-radius:10px;padding:9px}  
+.stat b{display:block;font-size:17px}  
+.meter{height:6px;background:#263c4d;border-radius:99px;overflow:hidden;display:flex;margin-top:10px}  
+.meter span{display:block;height:100%;transition:width .35s}  
+.meter .evenbar{background:var(--green)}.meter .oddbar{background:var(--red)}  
+.digitrow{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-top:10px}  
+.digit{background:#0a1926;border:1px solid var(--line);border-radius:8px;text-align:center;padding:7px 0;font-size:13px}  
+.digit b{display:block;font-size:16px}.digit small{color:var(--muted)}  
+.digit.evenDigit{border-color:#35e0ae55}.digit.oddDigit{border-color:#ff668555}  
+.tablewrap{overflow:auto}  
+table{width:100%;border-collapse:collapse;min-width:620px}  
+th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:13px}  
+th{color:var(--muted);font-weight:600}  
+.empty{padding:24px;text-align:center;color:var(--muted)}  
+.footer{color:var(--muted);font-size:12px;margin:24px 0 8px}  
+.pulsebar{height:2px;background:linear-gradient(90deg,transparent,var(--green),var(--blue),transparent);background-size:200% 100%;animation:scan 2.8s linear infinite;margin-top:18px}  
+@keyframes pulse{50%{opacity:.35;box-shadow:0 0 2px var(--green)}}  
+@keyframes scan{to{background-position:-200% 0}}  
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.marketgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}  
+@media(max-width:560px){.wrap{padding:13px}.grid,.marketgrid{grid-template-columns:1fr 1fr;gap:8px}.card{padding:12px}.big{font-size:24px}.digitrow{gap:3px}.digit{padding:6px 0}.sectionhead{align-items:flex-start;flex-direction:column}}  
+</style>  
+</head>  
+<body>  
+<main class="wrap">  
+<header class="top">  
+  <div class="brand">  
+    <div class="logo">D</div>  
+    <div>  
+      <div style="font-size:21px;font-weight:850;letter-spacing:-.04em">DIGIT PULSE <span style="color:var(--green)">/</span></div>  
+      <div class="sub">DERIV · EVEN / ODD MARKET SCANNER</div>  
+    </div>  
+  </div>  
+  <div class="pill"><span id="liveDot" class="dot"></span><span id="connection">Stopped</span></div>  
+</header>  <div class="controls">  
+  <button id="startBtn" class="primary">▶ Start analysis</button>  
+  <button id="stopBtn" class="stop" disabled>■ Stop analysis</button>  
+  <label class="pill">Market <select id="marketSelect"><option value="ALL">All volatility indices</option></select></label>  
+  <label class="pill">Window <select id="windowSelect"><option>100</option><option selected>300</option><option>500</option><option>1000</option></select></label>  
+</div>  <section class="grid">  
+  <div class="card"><div class="label">Markets found</div><div id="marketCount" class="big">—</div><div class="sub">Available volatility symbols</div></div>  
+  <div class="card"><div class="label">Live ticks received</div><div id="tickCount" class="big">0</div><div class="sub">Across active subscriptions</div></div>  
+  <div class="card"><div class="label">Signals generated</div><div id="signalCount" class="big">0</div><div class="sub">EVEN / ODD entries</div></div>  
+  <div class="card"><div class="label">Settled signal accuracy</div><div id="accuracy" class="big">—</div><div class="sub" id="settledText">Waiting for outcomes</div></div>  
+</section>  <section class="section">  
+  <div class="sectionhead"><h2>Volatility market scanner</h2><span class="sub">One signal decision per fresh tick · even/odd only</span></div>  
+  <div id="markets" class="marketgrid"><div class="card empty">Press Start analysis to connect.</div></div>  
+</section>  <section class="section card">  
+  <div class="sectionhead"><h2>Recent signal performance</h2><span class="sub">Each entry is scored against the next observed digit</span></div>  
+  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">  
+    <div><div class="label">Wins</div><div class="big green" id="wins">0</div></div>  
+    <div><div class="label">Losses</div><div class="big red" id="losses">0</div></div>  
+    <div><div class="label">Pending</div><div class="big gold" id="pending">0</div></div>  
+  </div>  
+  <div class="tablewrap" style="margin-top:12px">  
+    <table><thead><tr><th>Time</th><th>Market</th><th>Entry</th><th>Analysis score</th><th>Outcome</th></tr></thead>  
+    <tbody id="historyRows"><tr><td colspan="5" class="empty">No signals yet.</td></tr></tbody></table>  
+  </div>  
+</section>  <section class="section">  
+  <div class="sectionhead"><h2>Live digit distribution</h2><span class="sub">Final displayed digit from Deriv quote precision</span></div>  
+  <div id="digitsPanel" class="marketgrid"><div class="card empty">Press Start to load tick history.</div></div>  
+</section>  
+<div class="pulsebar"></div>  
+<div class="footer">DIGIT PULSE · Deriv public market data · Signal-only dashboard. Telegram alerts run separately through GitHub Actions.</div>  
+</main>  <script>  
+const APP_ID="34I7hjqMj1tMQwZIak0oR"; // Replace with your Deriv App ID.  
+const WS_URL=`wss://ws.derivws.com/websockets/v3?app_id=${encodeURIComponent(APP_ID)}`;  
+const $=id=>document.getElementById(id);  
+let ws=null,running=false,markets={},reqToSymbol={},nextReq=10,totalTicks=0,signalLog=[],wins=0,losses=0,subscriptions={},generation=0;  
+const parity=d=>d%2===0?"OVER":"UNDER";  
+  
+function displayedDigit(price,pipSize){  
+  const decimals=Math.max(0,Math.min(10,Number(pipSize)||0));  
+  const fixed=Number(price).toFixed(decimals);  
+  return Number(fixed.replace(/\D/g,"").slice(-1));  
+}  
+function fmtTime(epoch){return new Date((epoch||Date.now()/1000)*1000).toLocaleTimeString();}  
+function setConnection(s,live=false){$("connection").textContent=s;$("liveDot").className="dot"+(live?" live":"");}  
+function send(obj){if(running&&ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(obj));}  
+  
+function start(){  
+  if(running)return;  
+  if(APP_ID==="34I7hjqMj1tMQwZIak0oR"||!APP_ID.trim()){setConnection("Add your App ID first");return;}  
+  generation++;  
+  const myGen=generation;  
+  running=true;markets={};reqToSymbol={};subscriptions={};totalTicks=0;signalLog=[];wins=0;losses=0;nextReq=10;  
+  render();  
+  $("startBtn").disabled=true;$("stopBtn").disabled=false;  
+  setConnection("Connecting to Deriv…");  
+  ws=new WebSocket(WS_URL);  
+  
+  ws.onopen=()=>{  
+    if(myGen!==generation)return;  
+    setConnection("Connected · loading symbols",true);  
+    send({active_symbols:"brief",product_type:"basic",req_id:1});  
+  };  
+  
+  ws.onmessage=e=>{  
+    if(myGen!==generation||!running)return;  
+    let d;  
+    try{d=JSON.parse(e.data)}catch(_){return;}  
+    if(d.error){setConnection("API error: "+d.error.message);return;}  
+  
+    if(d.msg_type==="active_symbols"){  
+      const list=(d.active_symbols||[]).filter(s=>  
+        /volatility/i.test((s.display_name||"")+" "+(s.market_display_name||"")+" "+(s.submarket_display_name||"")) &&  
+        s.is_trading_suspended!==1  
+      );  
+      if(!list.length){setConnection("No volatility symbols returned");return;}  
+      list.forEach(s=>{  
+        if(!markets[s.symbol])markets[s.symbol]={  
+          symbol:s.symbol,name:s.display_name||s.symbol,digits:[],pipSize:null,  
+          lastPrice:null,lastDigit:null,lastEpoch:0,signal:"WAIT",score:0  
+        };  
+      });  
+      $("marketCount").textContent=Object.keys(markets).length;  
+      populateSelect();render();  
+      setConnection("Loading historical ticks",true);  
+      Object.values(markets).forEach(m=>{  
+        const id=nextReq++;  
+        reqToSymbol[id]=m.symbol;  
+        send({ticks_history:m.symbol,count:1000,end:"latest",style:"ticks",req_id:id});  
+      });  
+    }  
+  
+    if(d.msg_type==="history"){  
+      const sym=reqToSymbol[d.req_id],m=markets[sym];  
+      if(!m)return;  
+      const h=d.history||{};  
+      m.pipSize=d.pip_size??2;  
+      const prices=h.prices||[],times=h.times||[];  
+      prices.forEach((p,i)=>{  
+        m.digits.push(displayedDigit(p,m.pipSize));  
+        if(times[i])m.lastEpoch=Math.max(m.lastEpoch,Number(times[i]));  
+        m.lastPrice=p;  
+      });  
+      m.digits=m.digits.slice(-1000);  
+      if(m.digits.length)m.lastDigit=m.digits[m.digits.length-1];  
+      const subId=nextReq++;  
+      reqToSymbol[subId]=sym;  
+      send({ticks:sym,subscribe:1,req_id:subId});  
+      subscriptions[sym]=true;  
+      evaluate(m,false);render();  
+    }  
+  
+    if(d.msg_type==="tick"){  
+      const t=d.tick||{},m=markets[t.symbol];  
+      if(!m)return;  
+      const epoch=Number(t.epoch||0);  
+      if(epoch&&epoch<=m.lastEpoch)return;  
+      m.lastEpoch=epoch;  
+      m.pipSize=t.pip_size??m.pipSize??2;  
+      m.lastPrice=t.quote;  
+      m.lastDigit=displayedDigit(t.quote,m.pipSize);  
+      m.digits.push(m.lastDigit);  
+      m.digits=m.digits.slice(-1000);  
+      totalTicks++;  
+      evaluate(m,true);render();  
+    }  
+  };  
+  
+  ws.onerror=()=>{if(myGen===generation)setConnection("Connection error");};  
+  ws.onclose=()=>{  
+    if(myGen===generation&&running){  
+      setConnection("Disconnected · press Start to reconnect");  
+      running=false;$("startBtn").disabled=false;$("stopBtn").disabled=true;  
+    }  
+  };  
+}  
+  
+function stop(){  
+  running=false;generation++;  
+  if(ws){ws.onmessage=null;ws.onopen=null;try{ws.close();}catch(_){}}  
+  ws=null;setConnection("Stopped");  
+  $("startBtn").disabled=false;$("stopBtn").disabled=true;  
+  Object.values(markets).forEach(m=>m.signal="WAIT");  
+  render();  
+}  
+  
+function populateSelect(){  
+  const sel=$("marketSelect"),old=sel.value;  
+  sel.innerHTML='<option value="ALL">All volatility indices</option>';  
+  Object.values(markets).sort((a,b)=>a.name.localeCompare(b.name)).forEach(m=>{  
+    const o=document.createElement("option");  
+    o.value=m.symbol;o.textContent=m.name+" ("+m.symbol+")";sel.appendChild(o);  
+  });  
+  if([...sel.options].some(o=>o.value===old))sel.value=old;  
+}  
+  
+function evaluate(m,onFresh){  
+  const win=Number($("windowSelect").value),ds=m.digits.slice(-win);  
+  if(ds.length<Math.min(win,100)){m.signal="WAIT";m.score=0;return;}  
+  const ev=ds.filter(d=>d%2===0).length,rate=ev/ds.length;  
+  const short=ds.slice(-Math.min(50,ds.length));  
+  const shortRate=short.filter(d=>d%2===0).length/short.length;  
+  const edge=rate-.5,shortEdge=shortRate-.5;  
+  const same=(edge>0&&shortEdge>0)||(edge<0&&shortEdge<0);  
+  const score=Math.round(Math.min(99,50+Math.abs(edge)*150+Math.abs(shortEdge)*35));  
+  let pick="WAIT";  
+  if(onFresh&&ds.length>=win&&same&&Math.abs(edge)>=.07&&Math.abs(shortEdge)>=.08){  
+    pick=edge>0?"EVEN":"ODD";  
+  }  
+  
+  if(onFresh){  
+    for(const s of signalLog){  
+      if(s.symbol===m.symbol&&s.outcome==="PENDING"&&m.lastEpoch>s.epoch){  
+        s.outcome=parity(m.lastDigit)===s.entry?"WIN":"LOSS";  
+        if(s.outcome==="WIN")wins++;else losses++;  
+        break;  
+      }  
+    }  
+    if(pick!=="WAIT"&&!signalLog.some(s=>s.symbol===m.symbol&&s.outcome==="PENDING")){  
+      signalLog.unshift({time:fmtTime(m.lastEpoch),symbol:m.symbol,entry:pick,score,epoch:m.lastEpoch,outcome:"PENDING"});  
+      signalLog=signalLog.slice(0,100);  
+    }  
+  }  
+  m.signal=pick;m.score=score;  
+}  
+  
+function render(){  
+  const selected=$("marketSelect").value;  
+  const shown=Object.values(markets)  
+    .filter(m=>selected==="ALL"||m.symbol===selected)  
+    .sort((a,b)=>a.name.localeCompare(b.name));  
+  
+  $("tickCount").textContent=totalTicks.toLocaleString();  
+  $("signalCount").textContent=signalLog.length;  
+  $("wins").textContent=wins;$("losses").textContent=losses;  
+  $("pending").textContent=signalLog.filter(s=>s.outcome==="PENDING").length;  
+  const done=wins+losses;  
+  $("accuracy").textContent=done?(wins/done*100).toFixed(1)+"%":"—";  
+  $("settledText").textContent=done?done+" settled signals":"Waiting for outcomes";  
+  
+  $("markets").innerHTML=shown.length?shown.map(m=>{  
+    const ds=m.digits.slice(-Number($("windowSelect").value));  
+    const ev=ds.filter(d=>d%2===0).length,od=ds.length-ev;  
+    const er=ds.length?ev/ds.length*100:0,or=100-er;  
+    return `<article class="card market">  
+      <div class="marketname">${esc(m.name)}</div>  
+      <div class="symbol">${esc(m.symbol)} · ${ds.length} ticks loaded</div>  
+      <div class="signal ${m.signal.toLowerCase()}">${m.signal}</div>  
+      <div class="sub">Latest digit: <b>${m.lastDigit??"—"}</b> · ${m.lastDigit==null?"—":parity(m.lastDigit)}</div>  
+      <div class="meter"><span class="evenbar" style="width:${er}%"></span><span class="oddbar" style="width:${or}%"></span></div>  
+      <div class="stats">  
+        <div class="stat"><span class="sub">EVEN</span><b class="green">${er.toFixed(1)}%</b></div>  
+        <div class="stat"><span class="sub">ODD</span><b class="red">${or.toFixed(1)}%</b></div>  
+      </div>  
+      <div class="sub" style="margin-top:9px">Analysis score: ${m.score||0}/99 · stream ${subscriptions[m.symbol]?"active":"starting"}</div>  
+    </article>`;  
+  }).join(""):'<div class="card empty">No matching markets loaded.</div>';  
+  
+  $("digitsPanel").innerHTML=shown.length?shown.slice(0,6).map(m=>{  
+    const ds=m.digits.slice(-Number($("windowSelect").value)),c=Array(10).fill(0);  
+    ds.forEach(d=>c[d]++);  
+    return `<article class="card">  
+      <div class="marketname">${esc(m.name)}</div><div class="sub">${esc(m.symbol)} · digit distribution</div>  
+      <div class="digitrow">${c.map((n,i)=>`<div class="digit ${i%2===0?"evenDigit":"oddDigit"}"><b>${i}</b><small>${ds.length?(n/ds.length*100).toFixed(0):0}%</small></div>`).join("")}</div>  
+    </article>`;  
+  }).join(""):'<div class="card empty">Press Start to load tick history.</div>';  
+  
+  $("historyRows").innerHTML=signalLog.length?signalLog.slice(0,30).map(s=>  
+    `<tr><td>${esc(s.time)}</td><td>${esc(s.symbol)}</td><td class="${s.entry==="EVEN"?"green":"red"}">${s.entry}</td><td>${s.score}/99</td><td class="${s.outcome==="WIN"?"green":s.outcome==="LOSS"?"red":"gold"}">${s.outcome}</td></tr>`  
+  ).join(""):'<tr><td colspan="5" class="empty">No entries yet.</td></tr>';  
+}  
+  
+function esc(s){  
+  return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));  
+}  
+$("startBtn").addEventListener("click",start);  
+$("stopBtn").addEventListener("click",stop);  
+$("marketSelect").addEventListener("change",render);  
+$("windowSelect").addEventListener("change",()=>{Object.values(markets).forEach(m=>evaluate(m,false));render();});  
+window.addEventListener("beforeunload",stop);  
+</script>  </body>  
+  </html>  
